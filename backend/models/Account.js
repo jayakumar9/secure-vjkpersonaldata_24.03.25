@@ -47,6 +47,18 @@ const accountSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  logoStatus: {
+    type: String,
+    enum: ['verified', 'success', 'fallback', 'error'],
+    default: 'fallback'
+  },
+  logoMessage: {
+    type: String
+  },
+  logoSource: {
+    type: String,
+    enum: ['direct', 'google', 'verified', 'fallback'],
+  },
   attachedFile: {
     type: {
       gridFSId: {

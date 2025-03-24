@@ -104,7 +104,11 @@ async function fetchWebsiteLogo(website) {
     // Clean and normalize the website URL
     let cleanWebsite = website.toLowerCase().trim();
     if (!cleanWebsite) {
-      return 'https://ui-avatars.com/api/?name=Unknown&background=random&size=128';
+      return {
+        url: 'https://ui-avatars.com/api/?name=Unknown&background=random&size=128',
+        status: 'fallback',
+        message: 'No website provided'
+      };
     }
 
     // Remove protocol and www if present
@@ -113,72 +117,123 @@ async function fetchWebsiteLogo(website) {
     // Remove paths and query parameters
     cleanWebsite = cleanWebsite.split('/')[0];
 
-    // Expanded list of known sites with their direct logo URLs
-    const knownSites = {
-      'github.com': 'https://github.githubassets.com/favicons/favicon.svg',
-      'mongodb.com': 'https://www.mongodb.com/assets/images/global/favicon.ico',
-      'google.com': 'https://www.google.com/favicon.ico',
-      'gmail.com': 'https://www.google.com/gmail/about/static/images/favicon.ico',
-      'yahoo.com': 'https://s.yimg.com/cv/apiv2/default/icons/favicon_y19_32x32_custom.svg',
-      'microsoft.com': 'https://www.microsoft.com/favicon.ico',
-      'linkedin.com': 'https://static.licdn.com/sc/h/akt4ae504epesldzj74dzred8',
-      'facebook.com': 'https://static.xx.fbcdn.net/rsrc.php/yD/r/d4ZIVX-5C-b.ico',
-      'twitter.com': 'https://abs.twimg.com/favicons/twitter.ico',
-      'amazon.com': 'https://www.amazon.com/favicon.ico',
-      'example.com': 'https://ui-avatars.com/api/?name=Example&background=random&size=128'
+    // Special handling for common services with known high-quality logos
+    const commonServices = {
+      'gmail.com': {
+        url: 'https://www.google.com/gmail/about/static/images/logo-gmail.png',
+        status: 'verified'
+      },
+      'google.com': {
+        url: 'https://www.gstatic.com/images/branding/product/2x/googleg_48dp.png',
+        status: 'verified'
+      },
+      'facebook.com': {
+        url: 'https://static.xx.fbcdn.net/rsrc.php/yD/r/d4ZIVX-5C-b.ico',
+        status: 'verified'
+      },
+      'microsoft.com': {
+        url: 'https://www.microsoft.com/favicon.ico',
+        status: 'verified'
+      },
+      'github.com': {
+        url: 'https://github.githubassets.com/favicons/favicon.svg',
+        status: 'verified'
+      }
     };
 
-    // Check for known sites first
-    if (knownSites[cleanWebsite]) {
-      console.log(`Using predefined logo for ${cleanWebsite}`);
-      return knownSites[cleanWebsite];
+    if (commonServices[cleanWebsite]) {
+      return commonServices[cleanWebsite];
     }
 
-    // Try multiple favicon services with Promise.race
-    const services = [
-      `https://icon.horse/icon/${cleanWebsite}`,
-      `https://www.google.com/s2/favicons?domain=${cleanWebsite}&sz=128`,
-      `https://favicon.api.maplecone.com/favicon/${cleanWebsite}`,
-      `https://api.faviconkit.com/${cleanWebsite}/128`
-    ];
-
     const fetchOptions = {
-      timeout: 3000,
+      timeout: 5000,
       headers: {
-        'Accept': 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        'Accept': 'image/*',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       }
     };
 
-    try {
-      // Try all services in parallel
-      const responses = await Promise.allSettled(
-        services.map(url => 
-          fetch(url, fetchOptions)
-            .then(response => response.ok ? url : Promise.reject())
-            .catch(() => Promise.reject())
-        )
-      );
+    // Try multiple sources in parallel
+    const [directFavicon, googleFavicon] = await Promise.allSettled([
+      // Try direct favicon.ico
+      fetch(`https://${cleanWebsite}/favicon.ico`, fetchOptions)
+        .then(async response => {
+          if (!response.ok) return null;
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.startsWith('image/')) return null;
+          return {
+            url: `https://${cleanWebsite}/favicon.ico`,
+            status: 'direct',
+            quality: 'original'
+          };
+        })
+        .catch(() => null),
 
-      // Find the first successful response
-      const successfulUrl = responses
-        .find(result => result.status === 'fulfilled')
-        ?.value;
+      // Try Google's favicon service
+      fetch(`https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${cleanWebsite}&size=128`, fetchOptions)
+        .then(async response => {
+          if (!response.ok) return null;
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.startsWith('image/')) return null;
+          return {
+            url: `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${cleanWebsite}&size=128`,
+            status: 'google',
+            quality: 'enhanced'
+          };
+        })
+        .catch(() => null)
+    ]);
 
-      if (successfulUrl) {
-        console.log(`Successfully fetched logo from ${successfulUrl}`);
-        return successfulUrl;
-      }
-    } catch (error) {
-      console.error('Error fetching favicon:', error);
+    // Get the results
+    const directResult = directFavicon.status === 'fulfilled' ? directFavicon.value : null;
+    const googleResult = googleFavicon.status === 'fulfilled' ? googleFavicon.value : null;
+
+    console.log(`Logo fetch results for ${cleanWebsite}:`, {
+      directFavicon: directResult ? directResult.status : 'Failed',
+      googleFavicon: googleResult ? googleResult.status : 'Failed'
+    });
+
+    // Choose the best available logo
+    if (directResult) {
+      console.log(`Using direct favicon.ico for ${cleanWebsite}`);
+      return {
+        url: directResult.url,
+        status: 'success',
+        source: 'direct',
+        message: 'Using original website favicon'
+      };
+    } else if (googleResult) {
+      console.log(`Using Google's favicon for ${cleanWebsite}`);
+      return {
+        url: googleResult.url,
+        status: 'success',
+        source: 'google',
+        message: 'Using Google-enhanced favicon'
+      };
     }
 
-    // If all else fails, generate an avatar
-    console.log(`Generating avatar for ${cleanWebsite}`);
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanWebsite)}&background=random&size=128`;
+    // If no valid logo found, return text-based avatar with status
+    console.log(`No valid logo found for ${cleanWebsite}, using text-based avatar`);
+    const domainFirstLetter = cleanWebsite.charAt(0).toUpperCase();
+    const backgroundColor = Math.floor(Math.random()*16777215).toString(16);
+    return {
+      url: `https://ui-avatars.com/api/?name=${domainFirstLetter}&background=${backgroundColor}&color=fff&size=128&bold=true&font-size=0.8`,
+      status: 'fallback',
+      message: 'No logo found, using text avatar',
+      needsReview: true
+    };
+
   } catch (error) {
     console.error('Error in fetchWebsiteLogo:', error);
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(website)}&background=random&size=128`;
+    // Fallback to text-based avatar with error status
+    const domainFirstLetter = cleanWebsite.charAt(0).toUpperCase();
+    return {
+      url: `https://ui-avatars.com/api/?name=${domainFirstLetter}&background=random&color=fff&size=128&bold=true&font-size=0.8`,
+      status: 'error',
+      message: 'Error fetching logo, using text avatar',
+      error: error.message,
+      needsReview: true
+    };
   }
 }
 
@@ -481,7 +536,6 @@ router.post('/', protect, upload.single('attachedFile'), async (req, res) => {
 
     let fileData = null;
     if (req.file) {
-      // Always use GridFS for file storage
       const gridFSId = await storeInGridFS(req.file);
       fileData = {
         filename: req.file.originalname,
@@ -492,9 +546,9 @@ router.post('/', protect, upload.single('attachedFile'), async (req, res) => {
       };
     }
 
-    // Fetch logo for the website
-    const logo = await fetchWebsiteLogo(website);
-
+    // Fetch logo with status
+    const logoResult = await fetchWebsiteLogo(website);
+    
     // Create new account
     const account = new Account({
       serialNumber,
@@ -505,11 +559,13 @@ router.post('/', protect, upload.single('attachedFile'), async (req, res) => {
       password,
       note,
       attachedFile: fileData,
-      logo,
+      logo: logoResult.url, // Store only the URL
+      logoStatus: logoResult.status,
+      logoMessage: logoResult.message,
+      logoSource: logoResult.source,
       user: req.user._id
     });
 
-    // Save account
     await account.save();
 
     res.status(201).json({
@@ -522,7 +578,8 @@ router.post('/', protect, upload.single('attachedFile'), async (req, res) => {
           contentType: fileData.contentType,
           size: fileData.size,
           uploadDate: fileData.uploadDate
-        } : null
+        } : null,
+        logoDetails: logoResult
       }
     });
   } catch (error) {
@@ -630,9 +687,15 @@ router.put('/:id', protect, upload.single('attachedFile'), async (req, res) => {
     }
 
     // Fetch new logo if website changed
-    let logo = account.logo;
+    let logoUpdate = {};
     if (req.body.website && req.body.website !== account.website) {
-      logo = await fetchWebsiteLogo(req.body.website);
+      const logoResult = await fetchWebsiteLogo(req.body.website);
+      logoUpdate = {
+        logo: logoResult.url,
+        logoStatus: logoResult.status,
+        logoMessage: logoResult.message,
+        logoSource: logoResult.source
+      };
     }
 
     const updatedAccount = await Account.findByIdAndUpdate(
@@ -640,7 +703,7 @@ router.put('/:id', protect, upload.single('attachedFile'), async (req, res) => {
       {
         ...req.body,
         attachedFile: fileData,
-        logo
+        ...logoUpdate
       },
       { new: true }
     );

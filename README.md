@@ -7,8 +7,8 @@ A secure password manager application built with the MERN stack (MongoDB, Expres
 - 🔐 Secure user authentication with JWT
 - 🔑 Password storage with encryption
 - ⚡ Automatic password generation
-- 📎 File attachments support
-- 🌐 Automatic website logo fetching
+- 📎 File attachments support with GridFS
+- 🌐 Enhanced automatic website logo fetching system
 - 🎨 Dark mode interface
 - 📱 Responsive design for all devices
 - 🛡️ Protected API routes with rate limiting
@@ -17,9 +17,29 @@ A secure password manager application built with the MERN stack (MongoDB, Expres
 
 - **Frontend**: React.js, TailwindCSS
 - **Backend**: Node.js, Express.js
-- **Database**: MongoDB Atlas
+- **Database**: MongoDB Atlas with GridFS for file storage
 - **Authentication**: JWT (JSON Web Tokens)
-- **File Storage**: Local filesystem with secure access
+- **File Storage**: GridFS for scalable file storage
+- **Logo System**: Multi-source favicon fetching with fallback options
+
+## Enhanced Logo Fetching System
+
+The application includes a sophisticated logo fetching system with the following features:
+
+- Multiple source fetching:
+  - Direct website favicon.ico
+  - Google's favicon service
+  - Fallback to text-based avatars
+- Quality validation:
+  - Content-type verification
+  - Image format validation
+- Status tracking:
+  - Success/error status
+  - Source tracking
+  - Quality indicators
+- Automatic updates:
+  - Daily logo refresh
+  - Manual update option for admins
 
 ## Project Structure
 
@@ -165,6 +185,14 @@ The application will be available at:
 - PUT `/api/accounts/:id` - Update account
 - DELETE `/api/accounts/:id` - Delete account
 - GET `/api/accounts/generate-password` - Generate secure password
+- POST `/api/accounts/update-logos` - Update all account logos (Admin only)
+- GET `/api/accounts/files/:id` - Get attached file
+
+### File Management
+- GridFS integration for scalable file storage
+- Secure file access with user authentication
+- Support for multiple file types
+- Automatic cleanup of unused files
 
 ## Security Measures
 
