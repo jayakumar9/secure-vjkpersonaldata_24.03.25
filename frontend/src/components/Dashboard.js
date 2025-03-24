@@ -4,6 +4,7 @@ import { formatFileSize } from './dashboard/utils';
 import FilePreview from './dashboard/FilePreview';
 // eslint-disable-next-line 
 import { handleFileChange, handleViewFile } from './dashboard/FileHandler';
+import { EyeIcon } from '@heroicons/react/24/outline';
 
 const Dashboard = () => {
   const [accounts, setAccounts] = useState([]);
@@ -654,19 +655,27 @@ const Dashboard = () => {
                     <span className="whitespace-pre-wrap">{account.note}</span>
                   </p>
                 )}
-                {account.attachedFile && (
-                  <div className="mt-2">
-                    <button
-                      onClick={() => handleViewFile(account.attachedFile)}
-                      className="text-blue-500 hover:text-blue-400 flex items-center gap-2"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
-                      </svg>
-                      View File
-                    </button>
-                  </div>
-                )}
+                <div className="flex items-center mt-2">
+                  <input
+                    type="checkbox"
+                    className="form-checkbox h-4 w-4 text-blue-600"
+                    checked={!!account.attachedFile}
+                    readOnly
+                  />
+                  <span className="ml-2">
+                    {account.attachedFile ? (
+                      <button
+                        onClick={() => handleViewFile(account.attachedFile)}
+                        className="text-blue-300 hover:text-blue-200 flex items-center"
+                      >
+                        <EyeIcon className="h-4 w-4 mr-1" />
+                        View "{account.attachedFile.filename}"
+                      </button>
+                    ) : (
+                      "No file attached"
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
           ))}
